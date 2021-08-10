@@ -1,4 +1,3 @@
-use std::fs;
 use clap::{Arg, App, SubCommand};
 
 fn main() {
@@ -34,15 +33,17 @@ fn main() {
     log::debug!("Input directory is {}", &source_dir);
     log::debug!("Output directory is {}", &output_dir);
 
-    match fs::create_dir_all(&output_dir) {
-        Ok(_) => log::debug!("Created output_dir"),
-        Err(e) => panic!("Error creating output_dir: {:?}", e),
-    };
-
     let emotes = match mojiman::find_emotes(&source_dir) {
         Ok(emotes) => emotes,
         Err(err) => panic!("Error finding emotes: {:?}", err),
     };
 
     log::debug!("emotes = {:?}", &emotes);
+
+    if !std::path::Path::new(&output_dir).exists() {
+        match std::fs::create_dir(&output_dir) {
+            Ok(_) => log::info!("Created output_dir"),
+            Err(e) => panic!("Error creating output_dir: {:?}", e),
+        };
+    }
 }
