@@ -1,8 +1,11 @@
 use std::fs;
-use std::path::Path;
 use clap::{Arg, App, SubCommand};
 
 fn main() {
+    // https://github.com/env-logger-rs/env_logger/issues/47#issuecomment-607475404
+    env_logger::init_from_env(
+        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"));
+
     let matches = App::new("mojiman")
         .author("BBaoVanC <bbaovanc@bbaovanc.com")
         .arg(Arg::with_name("source_dir")
@@ -20,56 +23,26 @@ fn main() {
         .get_matches();
 
     let source_dir = match matches.value_of("source_dir") {
-        Some(string) => string,
+        Some(string) => String::from(string),
         None => panic!("Source directory cannot be null!"),
     };
     let output_dir = match matches.value_of("output_dir") {
-        Some(string) => string,
+        Some(string) => String::from(string),
         None => panic!("Output directory cannot be null!"),
     };
 
-    println!("Input directory name is {}", source_dir);
-    println!("Output directory name is {}", output_dir);
+    log::debug!("Input directory is {}", &source_dir);
+    log::debug!("Output directory is {}", &output_dir);
 
-    fs::create_dir(output_dir);
+    match fs::create_dir_all(&output_dir) {
+        Ok(_) => log::debug!("Created output_dir"),
+        Err(e) => panic!("Error creating output_dir: {:?}", e),
+    };
 
-    println!("Input directory is {:?}", source_dir);
-    println!("Output directory is {:?}", output_dir);
+    let emotes = match mojiman::find_emotes(&source_dir) {
+        Ok(emotes) => emotes,
+        Err(err) => panic!("Error finding emotes: {:?}", err),
+    };
 
-    let mut do_generate = Vec::new();
-
-    for emote in fs::read_dir(source_dir).unwrap() {
-        let emote = emote.unwrap();
-        let path = emote.path();
-        let extension = path.extension();
-        if extension == None {
-            continue
-        }
-        let extension = extension.unwrap().to_str().unwrap();
-
-        match extension {
-            "png" | "jpg" | "gif" => extension,
-            _ => continue
-        };
-        let name = path.file_name().unwrap();
-
-        let emote = Path::new(source_dir).join(name);
-        let out = Path::new(output_dir).join(name);
-
-        println!("out is {:?}", out);
-        if out.is_file() {
-            let in_last_modified = fs::metadata(&emote).unwrap().modified().unwrap();
-            let out_last_modified = fs::metadata(&out).unwrap().modified().unwrap();
-            if in_last_modified > out_last_modified {
-                do_generate.push(&name);
-            } else {
-                println!("Skipping {:?}!", name);
-            }
-        } else {
-            do_generate.push(&name);
-        }
-    }
-
-    println!();
-    println!("Files to generate: {:?}", do_generate);
+    log::debug!("emotes = {:?}", &emotes);
 }
