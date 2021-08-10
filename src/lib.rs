@@ -14,7 +14,7 @@ pub fn find_emotes(source_dir: &String) -> Result<Vec<Emote>, Box<dyn Error>> {
 
     for f in fs::read_dir(dir)? {
         let path = f?.path();
-        let name = match path.file_name() {
+        let name = match path.file_stem() {
             Some(name) => String::from(name.to_str().unwrap()),
             None => continue,
         };
@@ -22,10 +22,12 @@ pub fn find_emotes(source_dir: &String) -> Result<Vec<Emote>, Box<dyn Error>> {
             Some(extension) => String::from(extension.to_str().unwrap()),
             None => continue,
         };
-        emotes.push(Emote {
-            name,
-            extension,
-        });
+        if ["png", "jpg", "gif"].contains(&&extension[..]) {
+            emotes.push(Emote {
+                name,
+                extension,
+            });
+        }
     }
     //println!("source_dir = {:?}, dir = {:?}", source_dir, dir);
 
