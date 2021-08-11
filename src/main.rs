@@ -126,7 +126,7 @@ fn main() {
             let public_path = Path::new(&cfg.public_dir).join("emotes").join(&emote.file_name);
             mojiman::resize(&source_path, &public_path, cfg.emote_size)
                 .expect(&format!("Error resizing {}", emote.file_name)[..]);
-            resize_bar.println(format!("  Resized {}", emote.file_name));
+            resize_bar.println(format!("                                     Resized {}", emote.file_name));
             resize_bar.inc(1);
         }
 
