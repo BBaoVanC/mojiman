@@ -1,6 +1,4 @@
-use std::error::Error;
 use std::path::Path;
-use std::fs;
 use clap::{Arg, App, SubCommand};
 
 fn main() {
@@ -30,40 +28,26 @@ fn main() {
             .default_value("48"))
         .get_matches();
 
-    let source_dir = match matches.value_of("source_dir") {
-        Some(string) => String::from(string),
-        None => panic!("Source directory cannot be null!"),
-    };
-    let output_dir = match matches.value_of("output_dir") {
-        Some(string) => String::from(string),
-        None => panic!("Output directory cannot be null!"),
-    };
-    let emote_size = match matches.value_of("emote_size") {
-        Some(size) => {
-            match size.parse::<u32>() {
-                Ok(s) => s,
-                Err(err) => panic!("Could not convert emote_size to a number!"),
-            }
-        },
-        None => panic!("Emote size cannot be null!"),
-    };
+    let source_dir = String::from(matches.value_of("source_dir")
+        .expect("source_dir shouldn't be None"));
+    let output_dir = String::from(matches.value_of("output_dir")
+        .expect("output_dir shouldn't be None"));
+    let emote_size = matches.value_of("emote_size")
+        .expect("emote_size shouldn't be None");
+    let emote_size = emote_size.parse::<u32>()
+        .expect("emote_size couldn't be converted to a number");
 
     log::debug!("Input directory is {}", &source_dir);
     log::debug!("Output directory is {}", &output_dir);
 
-    let emotes = match mojiman::find_emotes(&source_dir) {
-        Ok(emotes) => emotes,
-        Err(err) => panic!("Error finding emotes: {:?}", err),
-    };
+    let emotes = mojiman::find_emotes(&source_dir).expect("Error finding emotes");
 
     log::debug!("emotes = {:?}", &emotes);
     log::info!("Found {} emotes", emotes.len());
 
     if !std::path::Path::new(&output_dir).exists() {
-        match std::fs::create_dir(&output_dir) {
-            Ok(_) => log::info!("Created output_dir"),
-            Err(e) => panic!("Error creating output_dir: {:?}", e),
-        };
+        std::fs::create_dir(&output_dir).expect("Error creating output_dir");
+        log::info!("Created output_dir");
     }
 
     let mut do_resize = Vec::new();
@@ -73,10 +57,8 @@ fn main() {
         let output_path = Path::new(&output_dir).join(&emote.file_name);
 
         if output_path.is_file() {
-            let should_resize = match mojiman::is_newer_than(&source_path, &output_path) {
-                Ok(b) => b,
-                Err(err) => panic!("Error comparing modification date of {}: {:?}", emote.file_name, err),
-            };
+            let should_resize = mojiman::is_newer_than(&source_path, &output_path)
+                .expect(&format!("Error comparing modification date of {}", emote.file_name)[..]);
 
             if should_resize {
                 log::debug!("Keep {}", emote.file_name);
@@ -96,9 +78,8 @@ fn main() {
     for emote in do_resize {
         let source_path = Path::new(&source_dir).join(&emote.file_name);
         let output_path = Path::new(&output_dir).join(&emote.file_name);
-        match mojiman::resize(&source_path, &output_path, emote_size) {
-            Ok(_) => log::info!("Resized {}", emote.file_name),
-            Err(err) => panic!("Error resizing {}: {:?}", emote.file_name, err),
-        };
+        mojiman::resize(&source_path, &output_path, emote_size)
+            .expect(&format!("Error resizing {}", emote.file_name)[..]);
+        log::info!("Resized {}", emote.file_name);
     }
 }
