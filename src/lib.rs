@@ -1,7 +1,7 @@
 use std::fs;
 use std::error::Error;
 use std::path::Path;
-use serde::Serialize;
+use serde_derive::Serialize;
 
 #[derive(Debug, Serialize)]
 pub struct Emote {

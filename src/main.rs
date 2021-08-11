@@ -1,5 +1,26 @@
 use std::path::Path;
-use clap::{Arg, App, SubCommand};
+use std::fs::File;
+use clap::{Arg, App};
+use serde_derive::{Serialize, Deserialize};
+
+
+#[derive(Serialize, Deserialize)]
+struct Config {
+    repo_name: String,
+    emote_size: u32,
+    source_dir: String,
+    public_dir: String,
+}
+
+impl ::std::default::Default for Config {
+    fn default() -> Self { Self {
+        repo_name: String::from("Nitroless Repo"),
+        emote_size: 48,
+        source_dir: String::from("emotes"),
+        public_dir: String::from("public"),
+    } }
+}
+
 
 fn main() {
     // https://github.com/env-logger-rs/env_logger/issues/47#issuecomment-607475404
@@ -7,64 +28,85 @@ fn main() {
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"));
 
     let matches = App::new("mojiman")
-        .author("BBaoVanC <bbaovanc@bbaovanc.com")
+        .about("Generate a Nitroless repo with correctly sized emotes")
+        .version("v0.1.0")
+        .after_help("These command-line flags will automatically update mojiman.toml, \
+                     which will be created if it doesn't already exist.")
+        .arg(Arg::with_name("repo_name")
+            .short("n")
+            .long("name")
+            .takes_value(true)
+            .help("Name of the Nitroless repo"))
         .arg(Arg::with_name("source_dir")
             .short("i")
             .long("source")
             .takes_value(true)
-            .help("Directory containing the source emotes")
-            .default_value("emotes"))
-        .arg(Arg::with_name("output_dir")
+            .help("Directory containing the source emotes"))
+        .arg(Arg::with_name("public_dir")
             .short("o")
             .long("out")
             .takes_value(true)
-            .help("Directory to output public files to")
-            .default_value("public"))
+            .help("Directory to output public files to"))
         .arg(Arg::with_name("emote_size")
             .short("s")
             .long("size")
             .takes_value(true)
-            .help("Resolution to resize emotes to")
-            .default_value("48"))
+            .help("Resolution to resize emotes to"))
         .get_matches();
 
-    let source_dir = String::from(matches.value_of("source_dir")
-        .expect("source_dir shouldn't be None"));
-    let output_dir = String::from(matches.value_of("output_dir")
-        .expect("output_dir shouldn't be None"));
-    let emote_size = matches.value_of("emote_size")
-        .expect("emote_size shouldn't be None");
-    let emote_size = emote_size.parse::<u32>()
-        .expect("emote_size couldn't be converted to a number");
+    let mut cfg: Config = confy::load_path("mojiman.toml").expect("Error loading config");
+    log::debug!("Loaded mojiman.toml");
 
-    log::debug!("Input directory is {}", &source_dir);
-    log::debug!("Output directory is {}", &output_dir);
 
-    let emotes = mojiman::find_emotes(&source_dir).expect("Error finding emotes");
+    if let Some(name) = matches.value_of("repo_name") {
+        cfg.repo_name = String::from(name);
+    }
 
-    log::debug!("emotes = {:?}", &emotes);
+    if let Some(dir) = matches.value_of("source_dir") {
+        cfg.source_dir = String::from(dir);
+    }
+
+    if let Some(dir) = matches.value_of("public_dir") {
+        cfg.public_dir = String::from(dir);
+    }
+
+    if let Some(size) = matches.value_of("emote_size") {
+        cfg.emote_size = size.parse::<u32>().expect("emote_size must be a number");
+    }
+
+    confy::store_path("mojiman.toml", &cfg).expect("Error saving updated config");
+    log::debug!("Updated mojiman.toml with current settings");
+
+
+    log::debug!("Source directory is {}", cfg.source_dir);
+    log::debug!("Public directory is {}", cfg.public_dir);
+
+    let emotes = mojiman::find_emotes(&cfg.source_dir).expect("Error finding emotes");
+
     log::info!("Found {} emotes", emotes.len());
 
-    if !std::path::Path::new(&output_dir).exists() {
-        std::fs::create_dir(&output_dir).expect("Error creating output_dir");
-        log::info!("Created output_dir");
+    if !std::path::Path::new(&cfg.public_dir).exists() {
+        std::fs::create_dir_all(Path::new(&cfg.public_dir).join("emotes"))
+            .expect(&format!("Error creating {}/emotes", &cfg.public_dir)[..]);
     }
 
     let mut do_resize = Vec::new();
 
     for emote in &emotes {
-        let source_path = Path::new(&source_dir).join(&emote.file_name);
-        let output_path = Path::new(&output_dir).join(&emote.file_name);
+        let source_path = Path::new(&cfg.source_dir).join(&emote.file_name);
+        let public_path = Path::new(&cfg.public_dir).join("emotes").join(&emote.file_name);
 
-        if output_path.is_file() {
-            let should_resize = mojiman::is_newer_than(&source_path, &output_path)
+        if public_path.is_file() {
+            let is_newer = mojiman::is_newer_than(&source_path, &public_path)
                 .expect(&format!("Error comparing modification date of {}", emote.file_name)[..]);
+            let public_size = imagesize::size(public_path).unwrap();
+            let is_wrongly_sized = !((public_size.width == cfg.emote_size as usize) || (public_size.height == cfg.emote_size as usize));
 
-            if should_resize {
-                log::debug!("Keep {}", emote.file_name);
+            if is_newer || is_wrongly_sized {
+                log::debug!("Resize {}", emote.file_name);
                 do_resize.push(emote);
             } else {
-                log::debug!("Resize {}", emote.file_name);
+                log::debug!("Keep {}", emote.file_name);
             }
         } else {
             log::debug!("Resize {}", emote.file_name);
@@ -72,18 +114,18 @@ fn main() {
         }
     }
 
-    log::debug!("do_resize = {:?}", do_resize);
     log::info!("Resizing {} emotes", do_resize.len());
 
     for emote in do_resize {
-        let source_path = Path::new(&source_dir).join(&emote.file_name);
-        let output_path = Path::new(&output_dir).join(&emote.file_name);
-        mojiman::resize(&source_path, &output_path, emote_size)
+        let source_path = Path::new(&cfg.source_dir).join(&emote.file_name);
+        let public_path = Path::new(&cfg.public_dir).join("emotes").join(&emote.file_name);
+        mojiman::resize(&source_path, &public_path, cfg.emote_size)
             .expect(&format!("Error resizing {}", emote.file_name)[..]);
         log::info!("Resized {}", emote.file_name);
     }
 
     let index_json = mojiman::make_index_json(&String::from("bobamoji"), &emotes);
-    log::debug!("JSON output:");
-    log::debug!("{}", serde_json::to_string_pretty(&index_json).unwrap());
+    serde_json::to_writer_pretty(&File::create(cfg.public_dir + "/index.json").expect("Error creating index.json"), &index_json)
+        .expect("Error writing index.json");
+    log::info!("Saved index.json");
 }
