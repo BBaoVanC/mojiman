@@ -2,6 +2,7 @@ use std::path::Path;
 use std::fs::File;
 use clap::{Arg, App};
 use serde_derive::{Serialize, Deserialize};
+use indicatif::ProgressBar;
 
 
 #[derive(Serialize, Deserialize)]
@@ -114,14 +115,24 @@ fn main() {
         }
     }
 
-    log::info!("Resizing {} emotes", do_resize.len());
+    if do_resize.len() > 0 {
+        log::info!("Resizing {} emotes", do_resize.len());
+        let resize_bar = ProgressBar::new(do_resize.len() as u64);
+        //resize_bar.set_style(ProgressStyle::default_bar()
+        //    .progress_chars("=>-"));
 
-    for emote in do_resize {
-        let source_path = Path::new(&cfg.source_dir).join(&emote.file_name);
-        let public_path = Path::new(&cfg.public_dir).join("emotes").join(&emote.file_name);
-        mojiman::resize(&source_path, &public_path, cfg.emote_size)
-            .expect(&format!("Error resizing {}", emote.file_name)[..]);
-        log::info!("Resized {}", emote.file_name);
+        for emote in do_resize {
+            let source_path = Path::new(&cfg.source_dir).join(&emote.file_name);
+            let public_path = Path::new(&cfg.public_dir).join("emotes").join(&emote.file_name);
+            mojiman::resize(&source_path, &public_path, cfg.emote_size)
+                .expect(&format!("Error resizing {}", emote.file_name)[..]);
+            resize_bar.println(format!("  Resized {}", emote.file_name));
+            resize_bar.inc(1);
+        }
+
+        resize_bar.finish();
+    } else {
+        log::info!("No emotes need to be resized");
     }
 
     let index_json = mojiman::make_index_json(&String::from("bobamoji"), &emotes);
