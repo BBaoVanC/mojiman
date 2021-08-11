@@ -1,11 +1,16 @@
 use std::fs;
 use std::error::Error;
 use std::path::Path;
+use serde::Serialize;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Emote {
     pub name: String,
+
+    #[serde(rename = "type")]
     pub extension: String,
+
+    #[serde(skip_serializing)]
     pub file_name: String,
 }
 
@@ -50,4 +55,12 @@ pub fn resize(source_path: &Path, output_path: &Path, size: u32) -> Result<(), B
     let img = image::open(source_path)?;
     img.resize(size, size, image::imageops::Lanczos3).save(output_path)?;
     Ok(())
+}
+
+pub fn make_index_json(name: &String, emotes: &Vec<Emote>) -> serde_json::Value {
+    serde_json::json!({
+        "name": name,
+        "path": "emotes",
+        "emotes": emotes,
+    })
 }

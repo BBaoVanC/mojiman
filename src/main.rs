@@ -52,7 +52,7 @@ fn main() {
 
     let mut do_resize = Vec::new();
 
-    for emote in emotes {
+    for emote in &emotes {
         let source_path = Path::new(&source_dir).join(&emote.file_name);
         let output_path = Path::new(&output_dir).join(&emote.file_name);
 
@@ -82,4 +82,8 @@ fn main() {
             .expect(&format!("Error resizing {}", emote.file_name)[..]);
         log::info!("Resized {}", emote.file_name);
     }
+
+    let index_json = mojiman::make_index_json(&String::from("bobamoji"), &emotes);
+    log::debug!("JSON output:");
+    log::debug!("{}", serde_json::to_string_pretty(&index_json).unwrap());
 }
