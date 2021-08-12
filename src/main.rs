@@ -1,11 +1,10 @@
 use std::io::Write;
 use std::path::Path;
 use std::fs::File;
-use clap::{Arg, App, crate_name, crate_authors, crate_version, crate_description};
+use clap::{Arg, App, SubCommand, crate_name, crate_authors, crate_version, crate_description};
 use serde_derive::{Serialize, Deserialize};
 use indicatif::{ProgressBar, ProgressStyle};
 use colored::Colorize;
-
 
 #[derive(Serialize, Deserialize)]
 struct Config {
@@ -31,7 +30,10 @@ fn main() {
         .version(crate_version!())
         .author(crate_authors!())
         .after_help("These command-line flags will automatically update mojiman.toml, \
-                     which will be created if it doesn't already exist.")
+                     which will be created if it doesn't already exist. \
+                     \n\n\
+                     If no subcommand is specified, then `generate` will run, \
+                     followed by `clean`.")
         .arg(Arg::with_name("verbose")
             .short("v")
             .long("verbose")
@@ -56,6 +58,11 @@ fn main() {
             .long("size")
             .takes_value(true)
             .help("Resolution to resize emotes to"))
+        .subcommand(SubCommand::with_name("generate")
+            .about("Generate the repo.")
+            .visible_aliases(&["gen", "g"]))
+        .subcommand(SubCommand::with_name("clean")
+            .about("Remove emotes from the public directory that have been removed from the source directory."))
         .get_matches();
 
     let loglevel: log::LevelFilter;
@@ -104,14 +111,54 @@ fn main() {
     log::debug!("Updated mojiman.toml with current settings");
 
 
-    log::debug!("Source directory is {}", cfg.source_dir);
-    log::debug!("Public directory is {}", cfg.public_dir);
+    if let Some(ref _matches) = matches.subcommand_matches("clean") {
+        clean_repo(&cfg);
+    } else if let Some(ref _matches) = matches.subcommand_matches("generate") {
+        generate_repo(&cfg);
+    } else {
+        log::info!("{} Running `mojiman generate`", "==>".green());
+        generate_repo(&cfg);
 
-    let emotes = mojiman::find_emotes(&cfg.source_dir).expect("Error finding emotes");
+        log::info!("{} Running `mojiman clean`", "==>".green());
+        clean_repo(&cfg);
+    }
+}
+
+fn clean_repo(cfg: &Config) {
+    if !Path::new(&cfg.public_dir).exists() {
+        log::error!("There is no public repo to clean up, run `mojiman generate` to create it.");
+        return;
+    }
+
+    let public_emotes_path = Path::new(&cfg.public_dir).join("emotes");
+    let public_emotes = mojiman::find_emotes(&public_emotes_path).expect("Error finding public emotes");
+    let source_emotes = mojiman::find_emotes(&Path::new(&cfg.source_dir)).expect("Error finding source emotes");
+
+    let mut orphans = Vec::new();
+    for emote in &public_emotes {
+        if !source_emotes.contains(emote) {
+            orphans.push(emote);
+        }
+    }
+
+    if orphans.len() > 0 {
+        log::info!("Removing {} orphaned emotes from the public directory", orphans.len());
+        for emote in &orphans {
+            let emote_path = public_emotes_path.join(&emote.file_name);
+            log::debug!("Removing {}", emote_path.to_str().unwrap());
+            std::fs::remove_file(&emote_path).expect(&format!("Error removing {}", emote_path.to_str().unwrap())[..]);
+        }
+    } else {
+        log::info!("There are no orphaned emotes in the public directory.");
+    }
+}
+
+fn generate_repo(cfg: &Config) {
+    let emotes = mojiman::find_emotes(&Path::new(&cfg.source_dir)).expect("Error finding emotes");
 
     log::info!("Found {} emotes", emotes.len());
 
-    if !std::path::Path::new(&cfg.public_dir).exists() {
+    if !Path::new(&cfg.public_dir).exists() {
         std::fs::create_dir_all(Path::new(&cfg.public_dir).join("emotes"))
             .expect(&format!("Error creating {}/emotes", &cfg.public_dir)[..]);
     }
@@ -158,11 +205,13 @@ fn main() {
         for emote in do_resize {
             let source_path = Path::new(&cfg.source_dir).join(&emote.file_name);
             let public_path = Path::new(&cfg.public_dir).join("emotes").join(&emote.file_name);
+
             resize_bar.set_message(String::from(&emote.file_name));
+            resize_bar.println(format!("{} Resizing {}", "::".blue(), emote.file_name));
+            resize_bar.inc(1);
+
             mojiman::resize(&source_path, &public_path, cfg.emote_size)
                 .expect(&format!("Error resizing {}", emote.file_name)[..]);
-            resize_bar.println(format!("   Resized {}", emote.file_name));
-            resize_bar.inc(1);
         }
 
         resize_bar.finish_with_message("");
@@ -171,7 +220,7 @@ fn main() {
     }
 
     let index_json = mojiman::make_index_json(&String::from("bobamoji"), &emotes);
-    serde_json::to_writer_pretty(&File::create(cfg.public_dir + "/index.json").expect("Error creating index.json"), &index_json)
+    serde_json::to_writer_pretty(&File::create(String::from(&cfg.public_dir) + "/index.json").expect("Error creating index.json"), &index_json)
         .expect("Error writing index.json");
     log::info!("Saved index.json");
 }

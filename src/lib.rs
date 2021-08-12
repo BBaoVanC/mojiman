@@ -3,7 +3,7 @@ use std::error::Error;
 use std::path::Path;
 use serde_derive::Serialize;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, PartialEq, Serialize)]
 pub struct Emote {
     pub name: String,
 
@@ -14,9 +14,8 @@ pub struct Emote {
     pub file_name: String,
 }
 
-pub fn find_emotes(source_dir: &String) -> Result<Vec<Emote>, Box<dyn Error>> {
+pub fn find_emotes(dir: &Path) -> Result<Vec<Emote>, Box<dyn Error>> {
     let mut emotes = Vec::new();
-    let dir = Path::new(source_dir);
 
     for f in fs::read_dir(dir)? {
         let path = f?.path();
