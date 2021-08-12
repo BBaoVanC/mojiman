@@ -2,7 +2,8 @@ use std::path::Path;
 use std::fs::File;
 use clap::{Arg, App};
 use serde_derive::{Serialize, Deserialize};
-use indicatif::ProgressBar;
+use indicatif::{ProgressBar, ProgressStyle};
+use colored::Colorize;
 
 
 #[derive(Serialize, Deserialize)]
@@ -84,7 +85,7 @@ fn main() {
 
     let emotes = mojiman::find_emotes(&cfg.source_dir).expect("Error finding emotes");
 
-    log::info!("Found {} emotes", emotes.len());
+    println!("{} Found {} emotes", "::".blue(), emotes.len());
 
     if !std::path::Path::new(&cfg.public_dir).exists() {
         std::fs::create_dir_all(Path::new(&cfg.public_dir).join("emotes"))
@@ -116,27 +117,29 @@ fn main() {
     }
 
     if do_resize.len() > 0 {
-        log::info!("Resizing {} emotes", do_resize.len());
+        println!("{} Resizing {} emotes", "::".blue(), do_resize.len());
         let resize_bar = ProgressBar::new(do_resize.len() as u64);
-        //resize_bar.set_style(ProgressStyle::default_bar()
-        //    .progress_chars("=>-"));
+        resize_bar.set_style(ProgressStyle::default_bar()
+            .template("[{wide_bar}] {pos}/{len} {msg}")
+            .progress_chars("=> "));
 
         for emote in do_resize {
             let source_path = Path::new(&cfg.source_dir).join(&emote.file_name);
             let public_path = Path::new(&cfg.public_dir).join("emotes").join(&emote.file_name);
+            resize_bar.set_message(String::from(&emote.file_name));
             mojiman::resize(&source_path, &public_path, cfg.emote_size)
                 .expect(&format!("Error resizing {}", emote.file_name)[..]);
-            resize_bar.println(format!("                                     Resized {}", emote.file_name));
+            resize_bar.println(format!("   Resized {}", emote.file_name));
             resize_bar.inc(1);
         }
 
-        resize_bar.finish();
+        resize_bar.finish_with_message("");
     } else {
-        log::info!("No emotes need to be resized");
+        println!("{} No emotes need to be resized", "::".blue());
     }
 
     let index_json = mojiman::make_index_json(&String::from("bobamoji"), &emotes);
     serde_json::to_writer_pretty(&File::create(cfg.public_dir + "/index.json").expect("Error creating index.json"), &index_json)
         .expect("Error writing index.json");
-    log::info!("Saved index.json");
+    println!("{} Saved index.json", "::".blue());
 }

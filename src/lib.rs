@@ -40,7 +40,6 @@ pub fn find_emotes(source_dir: &String) -> Result<Vec<Emote>, Box<dyn Error>> {
             });
         }
     }
-    //println!("source_dir = {:?}, dir = {:?}", source_dir, dir);
 
     Ok(emotes)
 }
