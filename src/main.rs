@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::path::Path;
 use std::fs::File;
 use clap::{Arg, App};
@@ -25,15 +26,15 @@ impl ::std::default::Default for Config {
 
 
 fn main() {
-    // https://github.com/env-logger-rs/env_logger/issues/47#issuecomment-607475404
-    env_logger::init_from_env(
-        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"));
-
     let matches = App::new("mojiman")
         .about("Generate a Nitroless repo with correctly sized emotes")
         .version("v0.1.0")
         .after_help("These command-line flags will automatically update mojiman.toml, \
                      which will be created if it doesn't already exist.")
+        .arg(Arg::with_name("verbose")
+            .short("v")
+            .long("verbose")
+            .help("Enable debug output"))
         .arg(Arg::with_name("repo_name")
             .short("n")
             .long("name")
@@ -55,6 +56,28 @@ fn main() {
             .takes_value(true)
             .help("Resolution to resize emotes to"))
         .get_matches();
+
+    let loglevel: log::LevelFilter;
+    if matches.is_present("verbose") {
+        loglevel = log::LevelFilter::Debug;
+    } else {
+        loglevel = log::LevelFilter::Info;
+    }
+
+    env_logger::builder()
+        .format(|buf, record| {
+            let level_str = match record.level() {
+                log::Level::Error => "::".red(),
+                log::Level::Warn => "::".yellow(),
+                log::Level::Info => "::".bright_blue(),
+                log::Level::Debug => "::".bright_black(),
+                log::Level::Trace => "::".black(),
+            };
+            writeln!(buf, "{} {}", level_str, record.args())
+        })
+        //.format_timestamp(None)
+        .filter_level(loglevel)
+        .init();
 
     let mut cfg: Config = confy::load_path("mojiman.toml").expect("Error loading config");
     log::debug!("Loaded mojiman.toml");
@@ -85,7 +108,7 @@ fn main() {
 
     let emotes = mojiman::find_emotes(&cfg.source_dir).expect("Error finding emotes");
 
-    println!("{} Found {} emotes", "::".blue(), emotes.len());
+    log::info!("Found {} emotes", emotes.len());
 
     if !std::path::Path::new(&cfg.public_dir).exists() {
         std::fs::create_dir_all(Path::new(&cfg.public_dir).join("emotes"))
@@ -101,7 +124,15 @@ fn main() {
         if public_path.is_file() {
             let is_newer = mojiman::is_newer_than(&source_path, &public_path)
                 .expect(&format!("Error comparing modification date of {}", emote.file_name)[..]);
-            let public_size = imagesize::size(public_path).unwrap();
+            let public_size = match imagesize::size(&public_path) {
+                Ok(size) => size,
+                Err(err) => {
+                    log::warn!("Failed to get the size of {}, it will be regenerated", emote.file_name);
+                    log::debug!("Error that caused the failure: {:?}", err);
+                    do_resize.push(emote);
+                    continue;
+                }
+            };
             let is_wrongly_sized = !((public_size.width == cfg.emote_size as usize) || (public_size.height == cfg.emote_size as usize));
 
             if is_newer || is_wrongly_sized {
@@ -117,7 +148,7 @@ fn main() {
     }
 
     if do_resize.len() > 0 {
-        println!("{} Resizing {} emotes", "::".blue(), do_resize.len());
+        log::info!("Resizing {} emotes", do_resize.len());
         let resize_bar = ProgressBar::new(do_resize.len() as u64);
         resize_bar.set_style(ProgressStyle::default_bar()
             .template("[{wide_bar}] {pos}/{len} {msg}")
@@ -135,11 +166,11 @@ fn main() {
 
         resize_bar.finish_with_message("");
     } else {
-        println!("{} No emotes need to be resized", "::".blue());
+        log::info!("No emotes need to be resized");
     }
 
     let index_json = mojiman::make_index_json(&String::from("bobamoji"), &emotes);
     serde_json::to_writer_pretty(&File::create(cfg.public_dir + "/index.json").expect("Error creating index.json"), &index_json)
         .expect("Error writing index.json");
-    println!("{} Saved index.json", "::".blue());
+    log::info!("Saved index.json");
 }
