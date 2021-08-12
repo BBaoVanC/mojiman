@@ -1,5 +1,7 @@
 [package]
 name = "mojiman"
+description = "Generate a Nitroless repo with correctly sized emotes"
+authors = ["BBaoVanC <bbaovanc@bbaovanc.com>"]
 version = "0.1.0"
 edition = "2018"
 license = "MIT"

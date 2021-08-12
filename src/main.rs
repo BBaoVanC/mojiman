@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::path::Path;
 use std::fs::File;
-use clap::{Arg, App};
+use clap::{Arg, App, crate_name, crate_authors, crate_version, crate_description};
 use serde_derive::{Serialize, Deserialize};
 use indicatif::{ProgressBar, ProgressStyle};
 use colored::Colorize;
@@ -26,9 +26,10 @@ impl ::std::default::Default for Config {
 
 
 fn main() {
-    let matches = App::new("mojiman")
-        .about("Generate a Nitroless repo with correctly sized emotes")
-        .version("v0.1.0")
+    let matches = App::new(crate_name!())
+        .about(crate_description!())
+        .version(crate_version!())
+        .author(crate_authors!())
         .after_help("These command-line flags will automatically update mojiman.toml, \
                      which will be created if it doesn't already exist.")
         .arg(Arg::with_name("verbose")
