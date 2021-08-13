@@ -14,7 +14,7 @@ pub struct Emote {
     pub file_name: String,
 }
 
-pub fn find_emotes(dir: &Path) -> Result<Vec<Emote>, Box<dyn Error>> {
+pub fn find_emotes<T: AsRef<Path>>(dir: T) -> Result<Vec<Emote>, Box<dyn Error>> {
     let mut emotes = Vec::new();
 
     for f in fs::read_dir(dir)? {
@@ -43,13 +43,13 @@ pub fn find_emotes(dir: &Path) -> Result<Vec<Emote>, Box<dyn Error>> {
     Ok(emotes)
 }
 
-pub fn is_newer_than(one: &Path, two: &Path) -> Result<bool, Box<dyn Error>> {
+pub fn is_newer_than<T: AsRef<Path>>(one: T, two: T) -> Result<bool, Box<dyn Error>> {
     let one_modified = fs::metadata(one)?.modified()?;
     let two_modified = fs::metadata(two)?.modified()?;
     Ok(one_modified > two_modified)
 }
 
-pub fn resize(source_path: &Path, output_path: &Path, size: u32) -> Result<(), Box<dyn Error>> {
+pub fn resize<T: AsRef<Path>>(source_path: T, output_path: T, size: u32) -> Result<(), Box<dyn Error>> {
     let img = image::open(source_path)?;
     img.resize(size, size, image::imageops::Lanczos3).save(output_path)?;
     Ok(())
