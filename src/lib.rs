@@ -2,6 +2,7 @@ use std::fs;
 use std::error::Error;
 use std::path::Path;
 use serde_derive::Serialize;
+use std::process::Command;
 
 
 pub mod json;
@@ -54,7 +55,19 @@ pub fn is_newer_than<T: AsRef<Path>>(one: T, two: T) -> Result<bool, Box<dyn Err
 }
 
 pub fn resize<T: AsRef<Path>>(source_path: T, output_path: T, size: u32) -> Result<(), Box<dyn Error>> {
-    let img = image::open(source_path)?;
-    img.resize(size, size, image::imageops::Lanczos3).save(output_path)?;
-    Ok(())
+
+    if source_path.as_ref().extension().unwrap().to_str().unwrap() == "gif" {
+        let source_path_str = source_path.as_ref().to_str().unwrap();
+        let output_path_str = output_path.as_ref().to_str().unwrap();
+        Command::new("magick")
+            .args(&["convert", source_path_str, "-resize", format!("{}", size).as_str(), output_path_str])
+            .status().expect(format!("Failed to execute imagemagick on {}", source_path_str).as_str());
+
+        Ok(())
+
+    } else {
+        let img = image::open(source_path)?;
+        img.resize(size, size, image::imageops::Lanczos3).save(output_path)?;
+        Ok(())
+    }
 }
