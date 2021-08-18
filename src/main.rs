@@ -6,6 +6,8 @@ use serde_derive::{Serialize, Deserialize};
 use indicatif::{ProgressBar, ProgressStyle};
 use colored::Colorize;
 
+use mojiman::json::indexjson;
+
 #[derive(Serialize, Deserialize)]
 struct Config {
     repo_name: String,
@@ -219,7 +221,11 @@ fn generate_repo(cfg: &Config) {
         log::info!("No emotes need to be resized");
     }
 
-    let index_json = mojiman::make_index_json(&String::from("bobamoji"), &emotes);
+    let mut index_json_emotes: Vec<indexjson::Emote> = Vec::new();
+    for e in emotes {
+        index_json_emotes.push(e.into());
+    }
+    let index_json = indexjson::generate(&String::from("bobamoji"), &index_json_emotes);
     serde_json::to_writer_pretty(&File::create(String::from(&cfg.public_dir) + "/index.json").expect("Error creating index.json"), &index_json)
         .expect("Error writing index.json");
     log::info!("Saved index.json");

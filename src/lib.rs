@@ -3,6 +3,10 @@ use std::error::Error;
 use std::path::Path;
 use serde_derive::Serialize;
 
+
+pub mod json;
+
+
 #[derive(Debug, PartialEq, Serialize)]
 pub struct Emote {
     pub name: String,
@@ -53,12 +57,4 @@ pub fn resize<T: AsRef<Path>>(source_path: T, output_path: T, size: u32) -> Resu
     let img = image::open(source_path)?;
     img.resize(size, size, image::imageops::Lanczos3).save(output_path)?;
     Ok(())
-}
-
-pub fn make_index_json(name: &String, emotes: &Vec<Emote>) -> serde_json::Value {
-    serde_json::json!({
-        "name": name,
-        "path": "emotes",
-        "emotes": emotes,
-    })
 }
