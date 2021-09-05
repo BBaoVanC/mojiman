@@ -14,7 +14,7 @@ impl From<mojiman_emote> for Emote {
     fn from(emote: mojiman_emote) -> Self {
         Emote {
             name: emote.name,
-            typ: emote.extension,
+            typ: ".".to_owned() + &emote.extension,
         }
     }
 }
