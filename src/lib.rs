@@ -3,6 +3,7 @@ use std::error::Error;
 use std::path::Path;
 use serde_derive::Serialize;
 use std::process::Command;
+use image::io::Reader;
 
 
 pub mod json;
@@ -70,4 +71,20 @@ pub fn resize<T: AsRef<Path>>(source_path: T, output_path: T, size: u32) -> Resu
         img.resize(size, size, image::imageops::Lanczos3).save(output_path)?;
         Ok(())
     }
+}
+
+pub fn make_repo_icons<T: AsRef<Path>>(public_path: T, source_icon_name: &String) -> Result<(), Box<dyn Error>> {
+    let public_path = public_path.as_ref();
+
+    let source_icon_path = Path::new(source_icon_name);
+    let repoimage_path = public_path.join("RepoImage.png");
+    let faviconico_path = public_path.join("favicon.ico");
+
+    let source_icon_reader = Reader::open(source_icon_path)?.with_guessed_format()?;
+    let source_icon = source_icon_reader.decode()?;
+
+    source_icon.save_with_format(repoimage_path, image::ImageFormat::Png)?;
+    source_icon.save_with_format(faviconico_path, image::ImageFormat::Ico)?;
+
+    Ok(())
 }

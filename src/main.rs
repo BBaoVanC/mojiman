@@ -14,6 +14,7 @@ struct Config {
     emote_size: u32,
     source_dir: String,
     public_dir: String,
+    icon_path: String,
 }
 
 impl ::std::default::Default for Config {
@@ -22,6 +23,7 @@ impl ::std::default::Default for Config {
         emote_size: 48,
         source_dir: String::from("emotes"),
         public_dir: String::from("public"),
+        icon_path: String::from("favicon.png"),
     } }
 }
 
@@ -219,6 +221,17 @@ fn generate_repo(cfg: &Config) {
         resize_bar.finish_with_message("");
     } else {
         log::info!("No emotes need to be resized");
+    }
+
+    let icon_path = Path::new(cfg.icon_path.as_str());
+    let public_path = Path::new(cfg.public_dir.as_str());
+
+    if icon_path.exists() {
+        mojiman::make_repo_icons(public_path, &cfg.icon_path)
+            .expect("Error generating repo icons");
+        log::info!("Generated repo icons");
+    } else {
+        log::info!("{} A repo icon was not found. Set its name in mojiman.toml, and it can be generated.", "NOTE:".yellow());
     }
 
     let mut index_json_emotes: Vec<indexjson::Emote> = Vec::new();
