@@ -70,7 +70,7 @@ pub fn resize<T: AsRef<Path>>(
                 output_path_str,
             ])
             .status()
-            .expect(format!("Failed to execute imagemagick on {}", source_path_str).as_str());
+            .unwrap_or_else(|_| panic!("Failed to execute imagemagick on {}", source_path_str));
 
         Ok(())
     } else {

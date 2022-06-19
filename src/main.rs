@@ -70,12 +70,11 @@ fn main() {
             .about("Remove emotes from the public directory that have been removed from the source directory."))
         .get_matches();
 
-    let loglevel: log::LevelFilter;
-    if matches.is_present("verbose") {
-        loglevel = log::LevelFilter::Debug;
+    let loglevel: log::LevelFilter = if matches.is_present("verbose") {
+        log::LevelFilter::Debug
     } else {
-        loglevel = log::LevelFilter::Info;
-    }
+        log::LevelFilter::Info
+    };
 
     env_logger::builder()
         .format(|buf, record| {
@@ -114,9 +113,9 @@ fn main() {
     confy::store_path("mojiman.toml", &cfg).expect("Error saving updated config");
     log::debug!("Updated mojiman.toml with current settings");
 
-    if let Some(ref _matches) = matches.subcommand_matches("clean") {
+    if let Some(_matches) = matches.subcommand_matches("clean") {
         clean_repo(&cfg);
-    } else if let Some(ref _matches) = matches.subcommand_matches("generate") {
+    } else if let Some(_matches) = matches.subcommand_matches("generate") {
         generate_repo(&cfg);
     } else {
         log::info!("{} Running `mojiman generate`", "==>".green());
@@ -146,7 +145,7 @@ fn clean_repo(cfg: &Config) {
         }
     }
 
-    if orphans.len() > 0 {
+    if !orphans.is_empty() {
         log::info!(
             "Removing {} orphaned emotes from the public directory",
             orphans.len()
@@ -210,7 +209,7 @@ fn generate_repo(cfg: &Config) {
         }
     }
 
-    if do_resize.len() > 0 {
+    if !do_resize.is_empty() {
         log::info!("Resizing {} emotes", do_resize.len());
         let resize_bar = ProgressBar::new(do_resize.len() as u64);
         resize_bar.set_style(
