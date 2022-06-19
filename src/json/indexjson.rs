@@ -1,6 +1,6 @@
-use std::convert::From;
-use serde_derive::{Serialize, Deserialize};
 use crate::Emote as mojiman_emote;
+use serde_derive::{Deserialize, Serialize};
+use std::convert::From;
 
 #[derive(Deserialize, Serialize)]
 pub struct Emote {

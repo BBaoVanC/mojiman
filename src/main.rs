@@ -1,10 +1,10 @@
+use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg, SubCommand};
+use colored::Colorize;
+use indicatif::{ProgressBar, ProgressStyle};
+use serde_derive::{Deserialize, Serialize};
+use std::fs::File;
 use std::io::Write;
 use std::path::Path;
-use std::fs::File;
-use clap::{Arg, App, SubCommand, crate_name, crate_authors, crate_version, crate_description};
-use serde_derive::{Serialize, Deserialize};
-use indicatif::{ProgressBar, ProgressStyle};
-use colored::Colorize;
 
 use mojiman::json::indexjson;
 
@@ -18,15 +18,16 @@ struct Config {
 }
 
 impl ::std::default::Default for Config {
-    fn default() -> Self { Self {
-        repo_name: String::from("Nitroless Repo"),
-        emote_size: 48,
-        source_dir: String::from("emotes"),
-        public_dir: String::from("public"),
-        icon_path: String::from("favicon.png"),
-    } }
+    fn default() -> Self {
+        Self {
+            repo_name: String::from("Nitroless Repo"),
+            emote_size: 48,
+            source_dir: String::from("emotes"),
+            public_dir: String::from("public"),
+            icon_path: String::from("favicon.png"),
+        }
+    }
 }
-
 
 fn main() {
     let matches = App::new(crate_name!())
@@ -94,7 +95,6 @@ fn main() {
     let mut cfg: Config = confy::load_path("mojiman.toml").expect("Error loading config");
     log::debug!("Loaded mojiman.toml");
 
-
     if let Some(name) = matches.value_of("repo_name") {
         cfg.repo_name = String::from(name);
     }
@@ -113,7 +113,6 @@ fn main() {
 
     confy::store_path("mojiman.toml", &cfg).expect("Error saving updated config");
     log::debug!("Updated mojiman.toml with current settings");
-
 
     if let Some(ref _matches) = matches.subcommand_matches("clean") {
         clean_repo(&cfg);
@@ -135,8 +134,10 @@ fn clean_repo(cfg: &Config) {
     }
 
     let public_emotes_path = Path::new(&cfg.public_dir).join("emotes");
-    let public_emotes = mojiman::find_emotes(&public_emotes_path).expect("Error finding public emotes");
-    let source_emotes = mojiman::find_emotes(&Path::new(&cfg.source_dir)).expect("Error finding source emotes");
+    let public_emotes =
+        mojiman::find_emotes(&public_emotes_path).expect("Error finding public emotes");
+    let source_emotes =
+        mojiman::find_emotes(&Path::new(&cfg.source_dir)).expect("Error finding source emotes");
 
     let mut orphans = Vec::new();
     for emote in &public_emotes {
@@ -146,11 +147,15 @@ fn clean_repo(cfg: &Config) {
     }
 
     if orphans.len() > 0 {
-        log::info!("Removing {} orphaned emotes from the public directory", orphans.len());
+        log::info!(
+            "Removing {} orphaned emotes from the public directory",
+            orphans.len()
+        );
         for emote in &orphans {
             let emote_path = public_emotes_path.join(&emote.file_name);
             log::debug!("Removing {}", emote_path.to_str().unwrap());
-            std::fs::remove_file(&emote_path).expect(&format!("Error removing {}", emote_path.to_str().unwrap())[..]);
+            std::fs::remove_file(&emote_path)
+                .expect(&format!("Error removing {}", emote_path.to_str().unwrap())[..]);
         }
     } else {
         log::info!("There are no orphaned emotes in the public directory.");
@@ -171,7 +176,9 @@ fn generate_repo(cfg: &Config) {
 
     for emote in &emotes {
         let source_path = Path::new(&cfg.source_dir).join(&emote.file_name);
-        let public_path = Path::new(&cfg.public_dir).join("emotes").join(&emote.file_name);
+        let public_path = Path::new(&cfg.public_dir)
+            .join("emotes")
+            .join(&emote.file_name);
 
         if public_path.is_file() {
             let is_newer = mojiman::is_newer_than(&source_path, &public_path)
@@ -179,13 +186,17 @@ fn generate_repo(cfg: &Config) {
             let public_size = match imagesize::size(&public_path) {
                 Ok(size) => size,
                 Err(err) => {
-                    log::warn!("Failed to get the size of {}, it will be regenerated", emote.file_name);
+                    log::warn!(
+                        "Failed to get the size of {}, it will be regenerated",
+                        emote.file_name
+                    );
                     log::debug!("Error that caused the failure: {:?}", err);
                     do_resize.push(emote);
                     continue;
                 }
             };
-            let is_wrongly_sized = !((public_size.width == cfg.emote_size as usize) || (public_size.height == cfg.emote_size as usize));
+            let is_wrongly_sized = !((public_size.width == cfg.emote_size as usize)
+                || (public_size.height == cfg.emote_size as usize));
 
             if is_newer || is_wrongly_sized {
                 log::debug!("Resize {}", emote.file_name);
@@ -202,13 +213,17 @@ fn generate_repo(cfg: &Config) {
     if do_resize.len() > 0 {
         log::info!("Resizing {} emotes", do_resize.len());
         let resize_bar = ProgressBar::new(do_resize.len() as u64);
-        resize_bar.set_style(ProgressStyle::default_bar()
-            .template("[{wide_bar}] {pos}/{len} {msg}")
-            .progress_chars("=> "));
+        resize_bar.set_style(
+            ProgressStyle::default_bar()
+                .template("[{wide_bar}] {pos}/{len} {msg}")
+                .progress_chars("=> "),
+        );
 
         for emote in do_resize {
             let source_path = Path::new(&cfg.source_dir).join(&emote.file_name);
-            let public_path = Path::new(&cfg.public_dir).join("emotes").join(&emote.file_name);
+            let public_path = Path::new(&cfg.public_dir)
+                .join("emotes")
+                .join(&emote.file_name);
 
             resize_bar.set_message(String::from(&emote.file_name));
             resize_bar.println(format!("{} Resizing {}", "::".blue(), emote.file_name));
@@ -227,11 +242,13 @@ fn generate_repo(cfg: &Config) {
     let public_path = Path::new(cfg.public_dir.as_str());
 
     if icon_path.exists() {
-        mojiman::make_repo_icons(public_path, &cfg.icon_path)
-            .expect("Error generating repo icons");
+        mojiman::make_repo_icons(public_path, &cfg.icon_path).expect("Error generating repo icons");
         log::info!("Generated repo icons");
     } else {
-        log::info!("{} A repo icon was not found. Set its name in mojiman.toml, and it can be generated.", "NOTE:".yellow());
+        log::info!(
+            "{} A repo icon was not found. Set its name in mojiman.toml, and it can be generated.",
+            "NOTE:".yellow()
+        );
     }
 
     let mut index_json_emotes: Vec<indexjson::Emote> = Vec::new();
@@ -239,7 +256,11 @@ fn generate_repo(cfg: &Config) {
         index_json_emotes.push(e.into());
     }
     let index_json = indexjson::generate(&String::from("bobamoji"), &index_json_emotes);
-    serde_json::to_writer_pretty(&File::create(String::from(&cfg.public_dir) + "/index.json").expect("Error creating index.json"), &index_json)
-        .expect("Error writing index.json");
+    serde_json::to_writer_pretty(
+        &File::create(String::from(&cfg.public_dir) + "/index.json")
+            .expect("Error creating index.json"),
+        &index_json,
+    )
+    .expect("Error writing index.json");
     log::info!("Saved index.json");
 }

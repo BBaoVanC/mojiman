@@ -1,13 +1,11 @@
-use std::fs;
-use std::error::Error;
-use std::path::Path;
-use serde_derive::Serialize;
-use std::process::Command;
 use image::io::Reader;
-
+use serde_derive::Serialize;
+use std::error::Error;
+use std::fs;
+use std::path::Path;
+use std::process::Command;
 
 pub mod json;
-
 
 #[derive(Debug, PartialEq, Serialize)]
 pub struct Emote {
@@ -55,25 +53,38 @@ pub fn is_newer_than<T: AsRef<Path>>(one: T, two: T) -> Result<bool, Box<dyn Err
     Ok(one_modified > two_modified)
 }
 
-pub fn resize<T: AsRef<Path>>(source_path: T, output_path: T, size: u32) -> Result<(), Box<dyn Error>> {
-
+pub fn resize<T: AsRef<Path>>(
+    source_path: T,
+    output_path: T,
+    size: u32,
+) -> Result<(), Box<dyn Error>> {
     if source_path.as_ref().extension().unwrap().to_str().unwrap() == "gif" {
         let source_path_str = source_path.as_ref().to_str().unwrap();
         let output_path_str = output_path.as_ref().to_str().unwrap();
         Command::new("magick")
-            .args(&["convert", source_path_str, "-resize", format!("{}", size).as_str(), output_path_str])
-            .status().expect(format!("Failed to execute imagemagick on {}", source_path_str).as_str());
+            .args(&[
+                "convert",
+                source_path_str,
+                "-resize",
+                format!("{}", size).as_str(),
+                output_path_str,
+            ])
+            .status()
+            .expect(format!("Failed to execute imagemagick on {}", source_path_str).as_str());
 
         Ok(())
-
     } else {
         let img = image::open(source_path)?;
-        img.resize(size, size, image::imageops::Lanczos3).save(output_path)?;
+        img.resize(size, size, image::imageops::Lanczos3)
+            .save(output_path)?;
         Ok(())
     }
 }
 
-pub fn make_repo_icons<T: AsRef<Path>>(public_path: T, source_icon_name: &String) -> Result<(), Box<dyn Error>> {
+pub fn make_repo_icons<T: AsRef<Path>>(
+    public_path: T,
+    source_icon_name: &String,
+) -> Result<(), Box<dyn Error>> {
     let public_path = public_path.as_ref();
 
     let source_icon_path = Path::new(source_icon_name);
